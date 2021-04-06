@@ -30,6 +30,7 @@ func newCrawler(maxDepth int) *crawler {
 func (c *crawler) run(ctx context.Context,  url string, results chan<- crawlResult, depth int) {
 	// просто для того, чтобы успевать следить за выводом программы, можно убрать :)
 	time.Sleep(2* time.Second)
+	mu := sync.Mutex{}
 	/*
 		общий таймаут на выполнение следующих операций:
 		работа парсера, получений ссылок со страницы, формирование заголовка.
@@ -45,7 +46,9 @@ func (c *crawler) run(ctx context.Context,  url string, results chan<- crawlResu
 
 	default:
 		// проверка глубины
+		mu.Lock()
 		if depth >= c.maxDepth {
+			mu.Unlock()
 			ctx.Done()
 			return
 		}

@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -75,6 +76,7 @@ func main() {
 
 // ловим сигналы выключения
 func watchSignals(c *crawler, cancel context.CancelFunc) {
+	mu := sync.Mutex{}
 	osSignalChan := make(chan os.Signal)
 	signal.Notify(osSignalChan,
 		syscall.SIGTERM,
@@ -92,7 +94,9 @@ func watchSignals(c *crawler, cancel context.CancelFunc) {
 
 		case <-sigusr1Chan:
 			log.Println("!!!got sigusr1")
+			mu.Lock()
 			c.maxDepth = 10
+			mu.Unlock()
 			continue
 		}
 		}
