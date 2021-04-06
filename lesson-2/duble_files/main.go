@@ -25,12 +25,17 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io/ioutil"
-	"log"
 	"os"
+	"os/user"
+	"path/filepath"
+	//"os/user"
 	"runtime"
 	"strings"
 	"sync"
+
+	logrus "github.com/sirupsen/logrus"
 )
+
 
 type FileList struct {
 	FileName string
@@ -38,6 +43,8 @@ type FileList struct {
 	FileSize int64
 	FileHash uint32
 }
+
+
 
 var (
 	// флаги
@@ -48,19 +55,46 @@ var (
 	deletedFiles []FileList // хранит только список дубликатов подлежащих удалению
 )
 
+// счетчики найденных файлов и каталогов
+var countFile, countDir int = 0, 1
+
 // init инициализирует аргументами программы, переданными через командную строку.
 //
 // не принимает и не возвращает значения
 func init() {
 	del = flag.Bool("d", false, "Accept on del finded duplicate")
-	Path = flag.String("p", "../", "Path to root dir where starting reading files")
+	Path = flag.String("p", "..", "Path to root dir where starting reading files")
 	flag.Parse()
 }
 
 func main() {
-	ListDirByReadDir(*Path)
-	FindDubleFiles()
+	logrus.SetFormatter(&logrus.JSONFormatter{}) // Функция SetFormatter позволяет установить формат log сообщения - в данном случае JSON
 
+	// Получаем данные текущего пользователя для использования в логах.
+	usr, err := user.Current()
+	if err != nil {
+		logrus.Fatal("данные о текущем пользователе не получены ", err)
+	}
+	// Функция Fields добавляет параметры в сообщение
+	standardFields := logrus.Fields{
+		"User Name": usr.Username,
+		"PID": os.Getpid(),
+	}
+
+	// с помощью WithFields создаем логер с параметрами standartFields
+	l := logrus.WithFields(standardFields)
+	absolutPath, _ := filepath.Abs(*Path)
+	l.WithFields(logrus.Fields{"func": "main"}).Info("start parsing from ", absolutPath)
+	ListDirByReadDir(*Path)
+	// log.Fields позволяет специфицировать параметры для конкретного сообщения
+	l.WithFields(logrus.Fields{"func": "main"}).Info("parsing finish...", "find files:", countFile, " find dir:", countDir)
+
+	// примеры:
+	//hlog.WithFields(logrus.Fields{"uid": 100500}).Info("file successfully uploaded")
+	//hlog.WithFields(logrus.Fields{"uid": 200512}).Warn("libjpeg: invalid format")
+	//hlog.WithFields(logrus.Fields{"uid": 101345}).Error("file corrupted")
+	//hlog.Infof("storage space left: %d", 1024)
+	FindDubleFiles()
 	if *del && deletedFiles != nil {
 		deletingFiles()
 	}
@@ -74,25 +108,50 @@ func main() {
 //
 // возвращаемого значения нет. Итог работы функции формирование списка файлов в срезе findFiles
 func ListDirByReadDir(path string) {
+	l := logrus.WithField("func", "ListDirByReadDir").WithField("PID", os.Getegid())
+
+	// обработка паники
+	defer func() {
+		if err := recover(); err != nil {
+			l.Error("паника при переходе в каталог ", err)
+
+		}
+	}()
+
+
+
 	mu := sync.Mutex{}
 	lst, err := ioutil.ReadDir(path)
 	if err != nil {
-		log.Fatal(err)
+		l.Error("can't read dir ", path, err)
 	}
 	for _, val := range lst {
 		if !val.IsDir() {
+			mu.Lock()
+			countFile++
+			mu.Unlock()
 			hs, err := getHash(path + "/" + val.Name())
 			if err != nil {
-				log.Fatal(err)
+			l.Error("can't get hash file: ", val.Name(), "path: ", path, err)
 			}
 			mu.Lock()
 			theFile := FileList{val.Name(), path, val.Size(), hs}
 			FindFiles = append(FindFiles, theFile)
 			mu.Unlock()
 		} else {
+			mu.Lock()
+			countDir++
+			mu.Unlock()
 			wg := sync.WaitGroup{}
 			wg.Add(1)
+
+			// явный вызов паники
+			if x:=(path + "/" + val.Name()); x == "../duble_files" {
+				panic(x)
+			}
+
 			go func() {
+				l.Info("start parsing next dir ", path + "/" + val.Name())
 				ListDirByReadDir(path + "/" + val.Name())
 				runtime.Gosched()
 				wg.Done()
@@ -117,7 +176,7 @@ func getHash(filename string) (uint32, error) {
 	return h.Sum32(), nil
 }
 
-// FindDubleFiles функция анализирует срез FindFiles на наличие дубликатов
+// FindDubleFiles функция анализирует срез FindFiles на наличие дубликатов (с линейной сложностью на базе мап)
 //
 // сравнение производится по полям структуры имя файла (FileName), размер файла (FileSize), хеш файла (FileHash)
 //
@@ -127,24 +186,27 @@ func getHash(filename string) (uint32, error) {
 //
 // формирование списка дубликатов  в срезе deletedFiles для удаления
 func FindDubleFiles() {
-	for ex, vol := range FindFiles {
-		wg := sync.WaitGroup{}
-		wg.Add(1)
-		go func(ex int, vol FileList) {
-			for i := ex + 1; i < len(FindFiles); i++ {
-
-				if vol.FileName == FindFiles[i].FileName &&
-					vol.FileSize == FindFiles[i].FileSize &&
-					vol.FileHash == FindFiles[i].FileHash {
-					fmt.Println("Найдены дубликаты файлов:")
-					fmt.Printf("ID: %d; File name: %v; File Path: %v; File Size: %d; File Hash: %d\n", ex, vol.FileName, vol.FilePath, vol.FileSize, vol.FileHash)
-					fmt.Printf("ID: %d; File name: %v; File Path: %v; File Size: %d; File Hash: %d\n", i, FindFiles[i].FileName, FindFiles[i].FilePath, FindFiles[i].FileSize, FindFiles[i].FileHash)
-					deletedFiles = append(deletedFiles, FindFiles[i])
-				}
-			}
-			wg.Done()
-		}(ex, vol)
-		wg.Wait()
+	type uniqueList struct {
+		FileName string
+		FileSize int64
+		FileHash uint32
+	}
+	uniqueFile := make(map[uniqueList]string)
+	for _, val := range FindFiles {
+		keyForMapWithoutPath := uniqueList{val.FileName, val.FileSize, val.FileHash}
+		if _, ok := uniqueFile[keyForMapWithoutPath]; !ok {
+			uniqueFile[keyForMapWithoutPath] = val.FilePath
+			continue
+		}
+		fmt.Println("Найдены дубликаты файла:")
+		fmt.Printf("File name: %v; File Size: %d; File Hash: %d\n", val.FileName, val.FileSize, val.FileHash)
+		fmt.Printf("First file path: %v\n", val.FilePath)
+		fmt.Printf("Second file path: %v\n", uniqueFile[keyForMapWithoutPath])
+		deletedFiles = append(deletedFiles, val)
+	}
+	if len(deletedFiles)==0 {
+		fmt.Println("Дубликаты не найдены")
+		return
 	}
 }
 
@@ -154,6 +216,7 @@ func FindDubleFiles() {
 //
 // возвращаемого значения нет.
 func deletingFiles() {
+	l := logrus.WithField("func", "deletingFiles").WithField("PID", os.Getegid())
 controlQuestion:
 	fmt.Println("Вы точно хотите удалить дублирующиеся файлы (y/n)")
 	var answer string
@@ -165,9 +228,10 @@ controlQuestion:
 	switch strings.ToLower(answer) {
 	case "y":
 		for _, vol := range deletedFiles {
-			e := os.Remove(vol.FilePath + "/" + vol.FileName)
-			if e != nil {
-				log.Fatal(e)
+			err := os.Remove(vol.FilePath + "/" + vol.FileName)
+			if err != nil {
+				l.Error("can't remove file: ", vol.FilePath + "/" + vol.FileName, err)
+				return
 			}
 			fmt.Printf("Удален файл %v/%v\n", vol.FilePath, vol.FileName)
 		}
