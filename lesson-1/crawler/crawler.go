@@ -48,6 +48,7 @@ func (c *crawler) run(ctx context.Context,  url string, results chan<- crawlResu
 		// проверка глубины
 		mu.Lock()
 		if depth >= c.maxDepth {
+			mu.Unlock()
 			ctx.Done()
 			return
 		}
