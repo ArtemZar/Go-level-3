@@ -44,8 +44,6 @@ type FileList struct {
 	FileHash uint32
 }
 
-
-
 var (
 	// флаги
 	del  *bool
@@ -67,25 +65,39 @@ func init() {
 	flag.Parse()
 }
 
+
+
 func main() {
-	logrus.SetFormatter(&logrus.JSONFormatter{}) // Функция SetFormatter позволяет установить формат log сообщения - в данном случае JSON
+	// Функция SetFormatter позволяет установить формат log сообщения - в данном случае JSON
+	logrus.SetFormatter(&logrus.JSONFormatter{})
+
+	// создаем корневой логер (далее требуется пробрасывать корневой логер через аргумент функции)
 
 	// Получаем данные текущего пользователя для использования в логах.
-	usr, err := user.Current()
+	var usr, err = user.Current()
 	if err != nil {
-		logrus.Fatal("данные о текущем пользователе не получены ", err)
+	logrus.Fatal("данные о текущем пользователе не получены ", err)
 	}
+	// преобразовываем относительный путь в абсолютный
+	absolutPath, err := filepath.Abs(*Path)
+	if err != nil {
+		logrus.Fatal("ошибка преобразования абсолютного пути ", err)
+	}
+
 	// Функция Fields добавляет параметры в сообщение
-	standardFields := logrus.Fields{
+	var standardFields = logrus.Fields{
 		"User Name": usr.Username,
 		"PID": os.Getpid(),
+		"This path": absolutPath,
 	}
 
 	// с помощью WithFields создаем логер с параметрами standartFields
-	l := logrus.WithFields(standardFields)
-	absolutPath, _ := filepath.Abs(*Path)
+	var l = logrus.WithFields(standardFields)
+
+	//
+
 	l.WithFields(logrus.Fields{"func": "main"}).Info("start parsing from ", absolutPath)
-	ListDirByReadDir(*Path)
+	ListDirByReadDir(*Path, l)
 	// log.Fields позволяет специфицировать параметры для конкретного сообщения
 	l.WithFields(logrus.Fields{"func": "main"}).Info("parsing finish...", "find files:", countFile, " find dir:", countDir)
 
@@ -107,8 +119,8 @@ func main() {
 // принимает на вход адрес верхнеуровнего каталога для начала поиска (тип string)
 //
 // возвращаемого значения нет. Итог работы функции формирование списка файлов в срезе findFiles
-func ListDirByReadDir(path string) {
-	l := logrus.WithField("func", "ListDirByReadDir").WithField("PID", os.Getegid())
+func ListDirByReadDir(path string, l *logrus.Entry) {
+	//l := logrus.WithField("func", "ListDirByReadDir").WithField("PID", os.Getegid())
 
 	// обработка паники
 	defer func() {
@@ -152,7 +164,7 @@ func ListDirByReadDir(path string) {
 
 			go func() {
 				l.Info("start parsing next dir ", path + "/" + val.Name())
-				ListDirByReadDir(path + "/" + val.Name())
+				ListDirByReadDir(path + "/" + val.Name(), l)
 				runtime.Gosched()
 				wg.Done()
 			}()
