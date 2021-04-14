@@ -42,3 +42,17 @@ func TestGetHash(t *testing.T) {
 	// Nil() функции выведет текст ошибки, что удобно при отладке.
 assert.NoError(t, err, "Хеш не расчитан")
 }
+
+func TestFindDubleFiles(t *testing.T) {
+	file1 := FileList{"file1.txt", "../dir1", 300, 123}
+	file2 := FileList{"file1.txt", "../dir2", 300, 123}
+	file3 := FileList{"file2.txt", "../dir3", 300, 123}
+	file4 := FileList{"file3.txt", "../dir3", 300, 123}
+	FindFiles = nil
+	FindFiles = append(FindFiles, file1, file2, file3, file4)
+	FindDubleFiles()
+	// Contains Вместо цикла по массиву или ключам хэш-таблицы можно воспользоваться этой функцией для
+	// проверки наличия элемента в объекте, по которому можно итерироваться.
+assert.Contains(t, deletedFiles, file2, "Дубликат файла (file1.txt) не сохранен в срезе deletedFiles")
+}
+

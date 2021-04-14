@@ -108,7 +108,7 @@ func main() {
 	//hlog.Infof("storage space left: %d", 1024)
 	FindDubleFiles()
 	if  deletedFiles != nil {
-		deletingFiles()
+		DeletingFiles()
 	}
 }
 
@@ -116,7 +116,7 @@ func main() {
 //
 // Рекурсия вызывается отдельными потоками при перемещении на нижестоящий уровень дерева каталогов (если в каталоге есть подкаталоги)
 //
-// принимает на вход адрес верхнеуровнего каталога для начала поиска (тип string)
+// принимает на вход Afero - это структура файловой системы (так же используется в тестах для формирования mock файловой системы) и адрес верхнеуровнего каталога для начала поиска (тип string)
 //
 // возвращаемого значения нет. Итог работы функции формирование списка файлов в срезе findFiles
 func ListDirByReadDir(fs afero.Fs, path string) { //, l *logrus.Entry
@@ -174,7 +174,7 @@ func ListDirByReadDir(fs afero.Fs, path string) { //, l *logrus.Entry
 
 // GetHash функция расчитывает хэш файла.
 //
-// принимает на вход имя файла (тип string)
+// принимает на вход Afero - это структура файловой системы (так же необходима для теста для создания mock) и имя файла (тип string)
 //
 // возвращает расчитаное значение (тип uint32)
 func GetHash(fs afero.Fs, filename string) (uint32, error) {
@@ -221,12 +221,12 @@ func FindDubleFiles() {
 	}
 }
 
-// deletingFiles функция удалят вайлы из операционной системы в соответсвии со списком deletedFiles
+// DeletingFiles функция удалят вайлы из операционной системы в соответсвии со списком deletedFiles
 //
 // не принимает аргументы
 //
 // возвращаемого значения нет.
-func deletingFiles() {
+func DeletingFiles() {
 	l := logrus.WithField("func", "deletingFiles").WithField("PID", os.Getegid())
 controlQuestion:
 	fmt.Println("Вы точно хотите удалить дублирующиеся файлы (y/n)")
