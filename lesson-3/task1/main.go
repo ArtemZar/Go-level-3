@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"github.com/spf13/afero"
 	"hash/crc32"
-	"io/ioutil"
 	"os"
 	"os/user"
 	"path/filepath"
@@ -132,9 +131,8 @@ func ListDirByReadDir(fs afero.Fs, path string) { //, l *logrus.Entry
 	}()
 
 
-
 	mu := sync.Mutex{}
-	lst, err := afero.ReadDir(fs, path) // ioutil.ReadDir(path)
+	lst, err := afero.ReadDir(fs, path) // используем afero для создания mock при тестировании. Обычный вариант ioutil.ReadDir(path)
 	if err != nil {
 		l.Error("can't read dir ", path, err)
 	}
@@ -143,7 +141,7 @@ func ListDirByReadDir(fs afero.Fs, path string) { //, l *logrus.Entry
 			mu.Lock()
 			countFile++
 			mu.Unlock()
-			hs, err := GetHash(path + "/" + val.Name())
+			hs, err := GetHash(fs, path + "/" + val.Name())
 			if err != nil {
 			l.Error("can't get hash file: ", val.Name(), "path: ", path, err)
 			}
@@ -179,8 +177,8 @@ func ListDirByReadDir(fs afero.Fs, path string) { //, l *logrus.Entry
 // принимает на вход имя файла (тип string)
 //
 // возвращает расчитаное значение (тип uint32)
-func GetHash(filename string) (uint32, error) {
-	bs, err := ioutil.ReadFile(filename)
+func GetHash(fs afero.Fs, filename string) (uint32, error) {
+	bs, err := afero.ReadFile(fs, filename) // используем afero для создания mock при тестировании. Обычный вариант ioutil.ReadFile(filename). При обычном варианте тест отображает лог что хэш не получен.
 	if err != nil {
 		return 0, err
 	}
