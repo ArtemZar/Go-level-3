@@ -1,0 +1,4 @@
+github.com/gorilla/mux v1.8.0 h1:i40aqfkR1h2SlN9hojwV5ZA91wcXFOvkdNIeFDP5koI=
+github.com/gorilla/mux v1.8.0/go.mod h1:DVbg23sWSpFRCP0SfiEN6jmj59UnW/n46BH5rLB71So=
+github.com/vlslav/web-broker v0.0.0-20210404121355-55b55944c1df h1:FMHPKNPFY45S8+Gp9FkuzIWGlDVpirMSHM+/8g0BPOg=
+github.com/vlslav/web-broker v0.0.0-20210404121355-55b55944c1df/go.mod h1:EReyEqM8RMTVJV5NVFvqyCXVKOAPefkF7+mKwMED2gI=
