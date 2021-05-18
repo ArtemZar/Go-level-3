@@ -1,10 +1,10 @@
-package repository
+package postgres
 
 import "github.com/ArtemZar/Go-level-3/lesson-5/internal/pkg/model"
 
 type PgRepo struct{}
 
-func NewPgRepo() *PgRepo {
+func New() *PgRepo {
 	return &PgRepo{}
 }
 

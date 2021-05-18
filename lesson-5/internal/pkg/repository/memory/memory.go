@@ -1,10 +1,10 @@
-package repository
+package memory
 
 import "github.com/ArtemZar/Go-level-3/lesson-5/internal/pkg/model"
 
 type MemRepo struct{}
 
-func NewMemRepo() *MemRepo {
+func New() *MemRepo {
 	return &MemRepo{}
 }
 

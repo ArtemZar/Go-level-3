@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"github.com/ArtemZar/Go-level-3/lesson-5/internal/pkg/repository/file"
 	"log"
 	"net"
 	"net/http"
@@ -12,9 +13,8 @@ import (
 	"time"
 
 	"github.com/ArtemZar/Go-level-3/lesson-5/internal/app/endpoint"
-
 	"github.com/ArtemZar/Go-level-3/lesson-5/internal/app/service"
-	"github.com/ArtemZar/Go-level-3/lesson-5/internal/pkg/repository"
+
 )
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 	storageName := flag.String("storage", "storage.json", "data storage")
 	shutdownTimeout := flag.Int64("shutdown_timeout", 3, "shutdown timeout")
 
-	repo := repository.NewFileRepo(*storageName)
+	repo := file.New(*storageName)
 	svc := service.New(repo)
 
 	serv := http.Server{
